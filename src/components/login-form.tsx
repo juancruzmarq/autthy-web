@@ -9,11 +9,56 @@ import {
   FieldSeparator,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/AuthContext";
+import { useState } from "react";
+import { AxiosError } from "axios";
+import { useNavigate } from "react-router-dom";
+import { Label } from "@radix-ui/react-label";
+
+const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const { login } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setLoading(true);
+    try {
+      await login(email, password);
+      navigate("/dashboard");
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        setErr(error.response?.data.message || "Login failed");
+      } else {
+        setErr("Login failed");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  function onGoogle() {
+    // opcional: recordar a dónde volver
+    const from =
+      new URLSearchParams(window.location.search).get("from") ||
+      (history.state &&
+        history.state.usr &&
+        history.state.usr.from?.pathname) ||
+      "/";
+    sessionStorage.setItem("postLoginFrom", from);
+
+    // redirigir a tu backend
+    window.location.href = `${API}/auth/google`;
+  }
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="overflow-hidden p-0">
@@ -26,6 +71,7 @@ export function LoginForm({
                   Login to your account
                 </p>
               </div>
+              {err && <Label className="text-red-600 text-center">{err}</Label>}
               <Field>
                 <FieldLabel htmlFor="email" className="text-red-900">
                   Email
@@ -35,6 +81,8 @@ export function LoginForm({
                   type="email"
                   placeholder="m@example.com"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </Field>
               <Field>
@@ -49,14 +97,22 @@ export function LoginForm({
                     Forgot your password?
                   </a>
                 </div>
-                <Input id="password" type="password" required />
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
               </Field>
               <Field>
                 <Button
                   type="submit"
                   className="bg-red-900 text-white hover:bg-red-800 w-full"
+                  onClick={onSubmit}
+                  disabled={loading}
                 >
-                  Login
+                  {loading ? "Logging in..." : "Login"}
                 </Button>
               </Field>
               <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
@@ -67,6 +123,7 @@ export function LoginForm({
                   variant="outline"
                   type="button"
                   className=" text-red-900 hover:bg-red-100 w-1/2 md:w-full"
+                  onClick={onGoogle}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
                     <path
@@ -79,7 +136,7 @@ export function LoginForm({
               </Field>
               <FieldDescription className="text-center">
                 Don&apos;t have an account?{" "}
-                <a href="#" className="text-red-900">
+                <a href="/signup" className="text-red-900">
                   Sign up
                 </a>
               </FieldDescription>
